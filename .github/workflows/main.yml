@@ -1,0 +1,39 @@
+name: Build
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Panther Image Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install required packages
+        run: |
+          sudo apt-get update
+          sudo apt-get -y install build-essential uuid-dev iasl nasm gcc-aarch64-linux-gnu lz4 python3-pil python3-git gettext
+
+      - name: Apply nested source patches
+        run: |
+          git -C GPLDrivers/Library/SimpleInit apply "$GITHUB_WORKSPACE/patches/simpleinit-panther.patch"
+
+      - name: Build an image for panther
+        run: |
+          ./build.sh --device panther --toolchain GCC --outputdir "$PWD/out"
+
+      - name: Upload a Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: panther
+          path: out/boot-panther.img
+          if-no-files-found: error
