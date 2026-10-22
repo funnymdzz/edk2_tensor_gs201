@@ -426,7 +426,6 @@ VOID PlatformRegisterOptionsAndKeys(VOID)
   EFI_STATUS                   Status;
   EFI_INPUT_KEY                Enter;
   EFI_INPUT_KEY                UP;
-  EFI_INPUT_KEY                Esc;
   EFI_BOOT_MANAGER_LOAD_OPTION BootOption;
 
   GetPlatformOptions();
@@ -444,8 +443,6 @@ VOID PlatformRegisterOptionsAndKeys(VOID)
   //
   UP.ScanCode     = SCAN_UP;
   UP.UnicodeChar  = CHAR_NULL;
-  Esc.ScanCode    = SCAN_ESC;
-  Esc.UnicodeChar = CHAR_NULL;
   Status          = EfiBootManagerGetBootManagerMenu(&BootOption);
   ASSERT_EFI_ERROR(Status);
 #ifdef ENABLE_SIMPLE_INIT
