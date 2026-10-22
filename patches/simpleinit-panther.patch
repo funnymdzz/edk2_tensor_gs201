@@ -489,3 +489,22 @@ index 8712812..8a29ad6 100644
  
  [Packages]
    MdePkg/MdePkg.dec
+diff --git a/libs/compatible/str.c b/libs/compatible/str.c
+index b8d1df9..03df54d 100644
+--- a/libs/compatible/str.c
++++ b/libs/compatible/str.c
+@@ -98,7 +98,13 @@ weak_decl char*strndup(const char*s,size_t n){
+ 	d[l]=0;
+ 	return d;
+ }
+-weak_decl char *basename(char *s){
++#if defined(__GNUC__) && __GNUC__ >= 14
++/* GCC >= 14 may conflict with libgen.h basename via other headers. */
++#define si_basename(s) basename(s)
++#else
++#define si_basename basename
++#endif
++weak_decl char *si_basename(char *s){
+ 	size_t i;
+ 	if(!s || !*s)return ".";
+ 	i=strlen(s)-1;
