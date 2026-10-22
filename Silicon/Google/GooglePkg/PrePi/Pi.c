@@ -219,8 +219,6 @@ PrePiMain(
   EFI_HOB_HANDOFF_INFO_TABLE *HobList;
   EFI_STATUS                  Status;
 
-  UINTN MemoryBase     = 0;
-  UINTN MemorySize     = 0;
   UINTN UefiMemoryBase = 0;
   UINTN UefiMemorySize = 0;
 
@@ -307,8 +305,6 @@ PrePiMain(
   ASSERT_EFI_ERROR (Status);
 
   // Declare UEFI region
-  MemoryBase     = FixedPcdGet32(PcdSystemMemoryBase);
-  MemorySize     = FixedPcdGet32(PcdSystemMemorySize);
   UefiMemoryBase = DxeHeap.Address;
   UefiMemorySize = DxeHeap.Length;
   
