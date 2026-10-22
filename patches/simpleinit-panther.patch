@@ -458,3 +458,21 @@ index 5ca2eec..e96aac9 100644
 +	tlog_warn("no available memory update method succeeded");
 +	return ret;
  }
+diff --git a/libs/compatible/include/stdbool.h b/libs/compatible/include/stdbool.h
+index 2d5384d..93e8e4b 100644
+--- a/libs/compatible/include/stdbool.h
++++ b/libs/compatible/include/stdbool.h
+@@ -3,7 +3,13 @@
+ #include "compatible.h"
+ #ifndef __cplusplus
+ #ifdef ENABLE_UEFI
++#if defined __STDC_VERSION__&&__STDC_VERSION__>201710L
++/* GCC >= 14 treats bool as a builtin C23 type even in earlier -std modes;
++ * redefinition is an error. Map our UEFI BOOLEAN to the builtin instead. */
++#define bool BOOLEAN
++#else
+ typedef BOOLEAN bool;
++#endif
+ #define true TRUE
+ #define false FALSE
+ #else
