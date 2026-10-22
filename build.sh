@@ -49,7 +49,7 @@ function _build(){
 	local DEVICE="${1}"
 	shift
 	source "${_EDK2}/edksetup.sh"
-	[ -d "${WORKSPACE}" ]||mkdir "${WORKSPACE}"
+	[ -d "${WORKSPACE}" ]||mkdir -p "${WORKSPACE}"
 	set -x
 	make -C "${_EDK2}/BaseTools"||exit "$?"
 
