@@ -476,3 +476,16 @@ index 2d5384d..93e8e4b 100644
  #define true TRUE
  #define false FALSE
  #else
+diff --git a/libs/zlib/Zlib.inf b/libs/zlib/Zlib.inf
+index 8712812..8a29ad6 100644
+--- a/libs/zlib/Zlib.inf
++++ b/libs/zlib/Zlib.inf
+@@ -7,7 +7,7 @@
+   LIBRARY_CLASS                  = Zlib
+ 
+ [BuildOptions]
+-  GCC:*_*_*_CC_FLAGS = -include src/config-uefi.h -Wno-implicit-fallthrough
++  GCC:*_*_*_CC_FLAGS = -include src/config-uefi.h -Wno-implicit-fallthrough -Wno-old-style-definition
+ 
+ [Packages]
+   MdePkg/MdePkg.dec
