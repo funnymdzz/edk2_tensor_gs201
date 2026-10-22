@@ -52,6 +52,23 @@ function platform_build_bootimg(){
 		_ramdisk_args=(--ramdisk ramdisk)
 	fi
 
+	# When a stock template image is provided, use magiskboot: it preserves the
+	# exact vendor header layout (AVB tags, os version, page size) that the
+	# target bootloader expects, and recompresses with the same format it
+	# detected. mkbootimg.py rebuilds headers from scratch and is only a
+	# fallback when no template is available.
+	local _magiskboot="${MAGISKBOOT:-${ROOTDIR}/tools/magiskboot/magiskboot}"
+	local _template="${BOOTIMG_TEMPLATE:-}"
+	if [ -x "${_magiskboot}" ] && [ -f "${_template}" ]
+	then
+		"${ROOTDIR}/tools/pack-panther-magiskboot.sh" \
+			"${_template}" \
+			"${WORKSPACE}/uefi-${DEVICE}-kernel" \
+			"${OUTDIR}/boot-${DEVICE}${EXT}.img" \
+			||return "$?"
+		return 0
+	fi
+
 	python3 "${ROOTDIR}/tools/mkbootimg.py" \
 		--kernel "${WORKSPACE}/uefi-${DEVICE}-kernel" \
 		"${_ramdisk_args[@]}" \

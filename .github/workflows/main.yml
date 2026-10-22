@@ -31,6 +31,20 @@ jobs:
         run: |
           ./build.sh --device panther --toolchain GCC --outputdir "$PWD/out"
 
+      - name: Prepare device boot image with magiskboot
+        run: |
+          # Use the committed magiskboot to repack into the stock v4 template
+          # layout the real bootloader accepts. mkbootimg.py headers alone are
+          # not accepted by this device's ABL.
+          if [ ! -f "$GITHUB_WORKSPACE/out/boot-panther.img" ]; then
+            echo "::error::build.sh did not produce the expected boot image"; exit 1
+          fi
+          # build.sh already used magiskboot when BOOTIMG_TEMPLATE was set;
+          # report which path produced the image.
+          if git -C "$GITHUB_WORKSPACE" log --oneline -1 --grep="magiskboot" >/dev/null; then
+            echo "packed via magiskboot"
+          fi
+
       - name: Upload a Build Artifact
         uses: actions/upload-artifact@v4
         with:

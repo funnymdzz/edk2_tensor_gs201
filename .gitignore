@@ -28,4 +28,3 @@ build-*.log
 *.cpio.gz
 probe-runs/
 device-collect/
-tools/magiskboot/
