@@ -9,6 +9,9 @@
 #ifndef _FDT_PARSER_LIB
 #define _FDT_PARSER_LIB
 #include <Uefi.h>
+/* Pull in the SimpleInit UEFI config before any of its compat headers so
+ * that stdbool/stdlib shims take the ENABLE_UEFI branch consistently. */
+#include <src/config-uefi.h>
 #include <Library/DebugLib.h>
 #include <Library/PrintLib.h>
 #include <Library/BaseMemoryLib.h>
