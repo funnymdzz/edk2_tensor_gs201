@@ -31,19 +31,33 @@ jobs:
         run: |
           ./build.sh --device panther --toolchain GCC --outputdir "$PWD/out"
 
-      - name: Prepare device boot image with magiskboot
+      - name: Repack boot image with magiskboot for real devices
         run: |
-          # Use the committed magiskboot to repack into the stock v4 template
-          # layout the real bootloader accepts. mkbootimg.py headers alone are
-          # not accepted by this device's ABL.
-          if [ ! -f "$GITHUB_WORKSPACE/out/boot-panther.img" ]; then
-            echo "::error::build.sh did not produce the expected boot image"; exit 1
-          fi
-          # build.sh already used magiskboot when BOOTIMG_TEMPLATE was set;
-          # report which path produced the image.
-          if git -C "$GITHUB_WORKSPACE" log --oneline -1 --grep="magiskboot" >/dev/null; then
-            echo "packed via magiskboot"
-          fi
+          # mkbootimg.py headers alone are not accepted by this device's ABL.
+          # magiskboot repack preserves the exact vendor header layout
+          # (AVB tags, page size) and recompresses the kernel with the same
+          # format it detected (lz4_legacy for Pixel 7).
+          set -e
+          IMG="$GITHUB_WORKSPACE/out/boot-panther.img"
+          [ -f "$IMG" ] || { echo "::error::boot image not found"; exit 1; }
+          MAGISKBOOT="$GITHUB_WORKSPACE/tools/magiskboot/magiskboot"
+          [ -x "$MAGISKBOOT" ] || { echo "::error::magiskboot not found"; exit 1; }
+          WORK="$(mktemp -d)"
+          trap 'rm -rf "$WORK"' EXIT
+          cd "$WORK"
+          cp "$IMG" stock.img
+          "$MAGISKBOOT" unpack -h stock.img
+          # Reuse the extracted kernel (already lz4_legacy) and repack.
+          # magiskboot reconstructs the v4 header from the detected template
+          # fields, producing an image the real bootloader accepts.
+          "$MAGISKBOOT" repack stock.img "$WORK/repacked.img"
+          mv "$WORK/repacked.img" "$IMG"
+          # Verify round-trip: decompressed kernel must be identical.
+          "$MAGISKBOOT" unpack "$IMG" >/dev/null 2>&1
+          cmp kernel "$GITHUB_WORKSPACE/out/workspace/uefi-panther-kernel" \
+            || { echo "::error::payload mismatch after repack"; exit 1; }
+          echo "magiskboot repack complete: $(stat -c%s "$IMG") bytes"
+          "$MAGISKBOOT" unpack -h "$IMG" 2>&1 | head -10
 
       - name: Upload a Build Artifact
         uses: actions/upload-artifact@v4
