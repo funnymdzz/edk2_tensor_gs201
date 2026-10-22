@@ -1,0 +1,27 @@
+## @file
+# PlatformMemoryMapLib for Google Pixel 7 (panther) / Tensor G2 (GS201)
+#
+# Copyright (c) DuoWoA authors. All rights reserved.
+# Copyright (c) Renegade Project. All rights reserved.
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = PlatformMemoryMapLibPanther
+  FILE_GUID                      = 7D3A9C42-5B18-4E6F-9A2D-C4E8B1F05A73
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = PlatformMemoryMapLib
+
+[Sources]
+  PlatformMemoryMapLib.c
+
+[Packages]
+  ArmPkg/ArmPkg.dec
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  EmbeddedPkg/EmbeddedPkg.dec
+  Silicon/Google/GooglePkg/GooglePkg.dec
+
+[LibraryClasses]
+  BaseLib

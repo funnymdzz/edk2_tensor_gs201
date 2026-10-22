@@ -1,0 +1,32 @@
+## @file
+# Read-only OS handoff inventory. No device register probing.
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+[Defines]
+  INF_VERSION = 0x0001001B
+  BASE_NAME = BootProbe
+  FILE_GUID = 91c0c010-a480-4f94-83b4-4ea93dc892a1
+  MODULE_TYPE = UEFI_APPLICATION
+  VERSION_STRING = 0.1
+  ENTRY_POINT = UefiMain
+[Sources]
+  BootProbe.c
+[Packages]
+  MdePkg/MdePkg.dec
+[LibraryClasses]
+  UefiApplicationEntryPoint
+  UefiLib
+  UefiBootServicesTableLib
+  UefiRuntimeServicesTableLib
+  MemoryAllocationLib
+[Protocols]
+  gEfiGraphicsOutputProtocolGuid
+  gEfiSimpleFileSystemProtocolGuid
+  gEfiBlockIoProtocolGuid
+  gEfiLoadFile2ProtocolGuid
+  gEfiSimpleNetworkProtocolGuid
+[Guids]
+  gEfiAcpi20TableGuid
+  gEfiAcpiTableGuid
+  gEfiSmbios3TableGuid
+  gFdtTableGuid

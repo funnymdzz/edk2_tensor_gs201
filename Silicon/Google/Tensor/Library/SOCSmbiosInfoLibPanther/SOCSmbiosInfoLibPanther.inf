@@ -1,0 +1,16 @@
+## @file
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+[Defines]
+  INF_VERSION = 0x0001001B
+  BASE_NAME = SOCSmbiosInfoLibPanther
+  FILE_GUID = 6d1187e5-26ea-4dbc-b0e9-f97ee40bba2c
+  MODULE_TYPE = DXE_DRIVER
+  VERSION_STRING = 0.1
+  LIBRARY_CLASS = SOCSmbiosInfoLib
+[Sources]
+  SOCSmbiosInfoLibPanther.c
+[Packages]
+  MdePkg/MdePkg.dec
+  Silicon/Google/GooglePkg/GooglePkg.dec
+[LibraryClasses]
+  BaseMemoryLib

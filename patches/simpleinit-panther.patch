@@ -1,0 +1,460 @@
+diff --git a/SimpleInit.inc b/SimpleInit.inc
+index c2468b2..d7d5c83 100644
+--- a/SimpleInit.inc
++++ b/SimpleInit.inc
+@@ -27,7 +27,7 @@
+   SimpleInitConfd|src/confd/SimpleInitConfd.inf
+   SimpleInitRootFS|src/SimpleInitRootFS.inf
+   KernelFdtDxe|src/kernelfdt/KernelFdtDxe.inf
+-  FdtLib|EmbeddedPkg/Library/FdtLib/FdtLib.inf
++  FdtLib|MdePkg/Library/BaseFdtLib/BaseFdtLib.inf
+ 
+ [Components]
+   libs/stb/STBLib.inf
+diff --git a/src/gui/SimpleInitGUI.inf b/src/gui/SimpleInitGUI.inf
+index 6107fc8..3dffbc2 100644
+--- a/src/gui/SimpleInitGUI.inf
++++ b/src/gui/SimpleInitGUI.inf
+@@ -60,7 +60,7 @@
+   gEfiSimplePointerProtocolGuid
+   gEfiSimpleTextInProtocolGuid
+   gEfiGraphicsOutputProtocolGuid
+-  gEfiUgaDrawProtocolGuid
++#gEfiUgaDrawProtocolGuid  # UgaDraw removed in edk2-stable202608
+   gEfiLoadedImageProtocolGuid
+   gEfiSimpleFileSystemProtocolGuid
+   gEfiTimestampProtocolGuid
+@@ -84,7 +84,7 @@
+   drivers/modes.c
+   drivers/dummy.c
+   drivers/uefi_gop.c
+-  drivers/uefi_uga.c
++#drivers/uefi_uga.c  # UgaDraw removed in edk2-stable202608
+   drivers/uefi_pointer.c
+   drivers/uefi_keyboard.c
+   drivers/uefi_touch.c
+diff --git a/src/gui/drivers.c b/src/gui/drivers.c
+index 2052e8f..f3af0b2 100644
+--- a/src/gui/drivers.c
++++ b/src/gui/drivers.c
+@@ -17,7 +17,7 @@ extern struct gui_driver guidrv_vnc;
+ extern struct gui_driver guidrv_http;
+ extern struct gui_driver guidrv_fbdev;
+ extern struct gui_driver guidrv_uefigop;
+-extern struct gui_driver guidrv_uefiuga;
++// guidrv_uefiuga dropped: UgaDraw removed in edk2-stable202608
+ extern struct input_driver indrv_uefi_kbd;
+ extern struct input_driver indrv_uefi_touch;
+ extern struct input_driver indrv_uefi_pointer;
+@@ -33,7 +33,7 @@ extern struct input_driver indrv_event;
+ struct gui_driver*gui_drvs[]={
+ 	#ifdef ENABLE_UEFI
+ 	&guidrv_uefigop,
+-	&guidrv_uefiuga,
++	// &guidrv_uefiuga,
+ 	#else
+ 	#ifdef ENABLE_GTK
+ 	&guidrv_gtk,
+diff --git a/src/linux-boot/SimpleInitBootLinux.inf b/src/linux-boot/SimpleInitBootLinux.inf
+index ad0682d..984113f 100644
+--- a/src/linux-boot/SimpleInitBootLinux.inf
++++ b/src/linux-boot/SimpleInitBootLinux.inf
+@@ -21,7 +21,7 @@
+ 
+ [LibraryClasses.ARM, LibraryClasses.AARCH64]
+   ArmLib
+-  ArmGicLib
++# ArmGicLib removed upstream in edk2-stable202608; unused by this module
+   CacheMaintenanceLib
+ 
+ [LibraryClasses]
+diff --git a/src/linux-boot/arm.c b/src/linux-boot/arm.c
+index d11dbb7..45e3c09 100644
+--- a/src/linux-boot/arm.c
++++ b/src/linux-boot/arm.c
+@@ -21,6 +21,15 @@
+ #include"internal.h"
+ #define TAG "linux-arm"
+ 
++#if defined(__aarch64__)
++/* WIP: the legacy raw handoff uses deleted, non-broadcast set/way APIs and
++ * accesses C state after disabling translation. Fail before ExitBootServices;
++ * EFI-stub loading is a separate path, not implemented by this function. */
++int boot_linux_arm(linux_boot*boot __attribute__((unused))){
++	tlog_error("Raw ARM64 handoff disabled in upstream EDK2 WIP; use the EFI-stub loader path");
++	return -1;
++}
++#else
+ typedef VOID (*ARM_V7_CACHE_OPERATION)(UINTN);
+ typedef VOID (*AARCH64_CACHE_OPERATION)(UINTN);
+ extern VOID ArmV7DataCacheOperation(IN ARM_V7_CACHE_OPERATION DataCacheOperation);
+@@ -160,6 +169,7 @@ int boot_linux_arm(linux_boot*boot){
+ 	tlog_error("kernel magic invalid");
+ 	return -1;
+ }
++#endif /* legacy ARM32 handoff */
+ #else
+ #include"internal.h"
+ int boot_linux_arm(linux_boot*boot __attribute__((unused))){return -1;}
+diff --git a/src/linux-boot/fdt.c b/src/linux-boot/fdt.c
+index f8ac1d2..32cdbed 100644
+--- a/src/linux-boot/fdt.c
++++ b/src/linux-boot/fdt.c
+@@ -131,7 +131,10 @@ int linux_boot_update_fdt(linux_boot*lb){
+ 
+ 	linux_boot_update_cmdline(lb);
+ 	linux_boot_update_initrd(lb);
+-	linux_boot_update_memory(lb);
++	if(linux_boot_update_memory(lb)!=0){
++		tlog_error("refuse DT publication after memory-map update failure");
++		return -1;
++	}
+ 	linux_boot_update_random(lb);
+ 	linux_boot_update_splash(lb);
+ 	linux_boot_update_info(lb);
+diff --git a/src/linux-boot/linux.c b/src/linux-boot/linux.c
+index 75e8e8c..126d035 100644
+--- a/src/linux-boot/linux.c
++++ b/src/linux-boot/linux.c
+@@ -69,6 +69,12 @@ static int check_boot(linux_boot*lb){
+ }
+ 
+ int linux_boot_prepare(linux_boot*lb){
++	#ifdef PANTHER_EFI_SAFE_BOOT_ONLY
++	/* Legacy preparation publishes borrowed DT/initrd state without rollback.
++	 * Panther uses the isolated LinuxEfiBoot application until this lifecycle
++	 * is repaired. Reject before any allocations/protocol publication. */
++	return trlog_error(-1,"Use LinuxEfiBoot.efi for Panther EFI-stub boot");
++	#endif
+ 	if(linux_load_from_config(lb)!=0)
+ 		return trlog_error(-1,"load linux failed");
+ 	if(linux_boot_install_random_seed()!=0)
+diff --git a/src/linux-boot/mem.c b/src/linux-boot/mem.c
+index 5ca2eec..e96aac9 100644
+--- a/src/linux-boot/mem.c
++++ b/src/linux-boot/mem.c
+@@ -23,91 +23,140 @@
+ #include"rampartition.h"
+ #define TAG "memory"
+ 
+-static int fdt_append_reg(void*fdt,int off,bool use32,UINTN val){
+-	return use32?
+-		fdt_appendprop_u32(fdt,off,"reg",(uint32_t)val):
+-		fdt_appendprop_u64(fdt,off,"reg",(uint64_t)val);
+-}
++/* -1 means unavailable (try another source); -2 means invalid data/write failure. */
++#define MEMORY_UPDATE_ERROR (-2)
+ 
+-static int fdt_add_memory(linux_boot*lb,UINTN addr,UINTN size){
+-	int ret=0;
+-	char buf[64];
+-	static int off=-1;
+-	static void*dtb=NULL;
+-	static bool use32=false;
+-	if(dtb!=lb->dtb.address){
+-		off=fdt_path_offset(lb->dtb.address,"/memory");
+-		if(off<0){
+-			off=fdt_add_subnode(lb->dtb.address,0,"/memory");
+-			if(off<0)return trlog_warn(
+-				-1,
+-				"get memory node failed: %s",
+-				fdt_strerror(off)
+-			);
+-			fdt_setprop_string(lb->dtb.address,off,"device_type","memory");
+-		}
+-		fdt_delprop(lb->dtb.address,off,"reg");
+-		dtb=lb->dtb.address;
++typedef struct memory_writer{
++	linux_boot*lb;
++	bool initialized;
++}memory_writer;
++
++static int fdt_add_memory(memory_writer*writer,uint64_t addr,uint64_t size){
++	void*dtb=writer->lb->dtb.address;
++	int ret,off,ac=fdt_address_cells(dtb,0),sc=fdt_size_cells(dtb,0),n=0;
++	fdt32_t reg[4];
++	if(!size||addr>UINT64_MAX-size||
++		(ac!=1&&ac!=2)||(sc!=1&&sc!=2)||
++		(ac==1&&(addr>UINT32_MAX||size>(UINT64_C(1)<<32)-addr))||
++		(sc==1&&size>UINT32_MAX))
++		return trlog_warn(MEMORY_UPDATE_ERROR,"invalid memory range or DT cells");
++	if(ac==2)reg[n++]=cpu_to_fdt32((uint32_t)(addr>>32));
++	reg[n++]=cpu_to_fdt32((uint32_t)addr);
++	if(sc==2)reg[n++]=cpu_to_fdt32((uint32_t)(size>>32));
++	reg[n++]=cpu_to_fdt32((uint32_t)size);
++	/* Resolve again: unrelated DT property edits can move node offsets. */
++	off=fdt_path_offset(dtb,"/memory");
++	if(off==-FDT_ERR_NOTFOUND)off=fdt_add_subnode(dtb,0,"memory");
++	if(off<0)return trlog_warn(MEMORY_UPDATE_ERROR,
++		"get memory node failed: %s",fdt_strerror(off));
++	if(!writer->initialized){
++		ret=fdt_setprop_string(dtb,off,"device_type","memory");
++		if(ret<0)return trlog_warn(MEMORY_UPDATE_ERROR,
++			"set memory type failed: %s",fdt_strerror(ret));
++		ret=fdt_delprop(dtb,off,"reg");
++		if(ret<0&&ret!=-FDT_ERR_NOTFOUND)return trlog_warn(MEMORY_UPDATE_ERROR,
++			"clear memory reg failed: %s",fdt_strerror(ret));
++		writer->initialized=true;
+ 	}
+-	tlog_info(
+-		"memory: 0x%016llx - 0x%016llx (%llu bytes / %s)",
+-		(unsigned long long)addr,
+-		(unsigned long long)addr+size,
+-		(unsigned long long)size,
+-		make_readable_str_buf(buf,sizeof(buf),size,1,0)
+-	);
++	/* Append the entire tuple atomically, never an address without its size. */
++	ret=fdt_appendprop(dtb,off,"reg",reg,n*sizeof(reg[0]));
++	if(ret<0)return trlog_warn(MEMORY_UPDATE_ERROR,
++		"add memory range failed: %s",fdt_strerror(ret));
++	tlog_info("memory: 0x%016llx - 0x%016llx (%llu bytes)",
++		(unsigned long long)addr,(unsigned long long)(addr+size),
++		(unsigned long long)size);
++	return 0;
++}
+ 
+-	ret=fdt_append_reg(lb->dtb.address,off,use32,addr);
+-	if(ret<0)return trlog_warn(
+-		ret,
+-		"add memory address failed: %s",
+-		fdt_strerror(ret)
+-	);
++/* Portable range accumulator; the host tests compile this exact implementation.
++ * Inputs must be ordered, nonoverlapping, nonempty half-open intervals.
++ * Explicit state permits address zero and isolates every boot attempt.
++ */
++typedef struct memory_merge{
++	uint64_t start,end;
++	bool pending;
++}memory_merge;
+ 
+-	ret=fdt_append_reg(lb->dtb.address,off,use32,size);
+-	if(ret<0)tlog_warn(
+-		"add memory size failed: %s",
+-		fdt_strerror(ret)
+-	);
++static int fdt_flush_memory(memory_writer*writer,memory_merge*merge){
++	int ret;
++	if(!merge->pending)return 0;
++	ret=fdt_add_memory(writer,merge->start,merge->end-merge->start);
++	if(!ret)merge->pending=false;
+ 	return ret;
+ }
+ 
+-static int fdt_add_merge_memory(linux_boot*lb,UINTN addr,UINTN size){
+-	STATIC UINTN last_end=0,start=0;
+-	UINTN end=addr+size;
+-	if(size!=0){
+-		if(last_end!=addr){
+-			if(start>0&&end>start)fdt_add_memory(lb,start,end-start);
+-			start=addr;
+-		}
+-		last_end=end;
+-	}else if(start>0&&last_end>start)fdt_add_memory(lb,start,last_end-start);
++static int fdt_add_merge_memory(memory_writer*writer,memory_merge*merge,
++	uint64_t addr,uint64_t size){
++	int ret;
++	if(!size||addr>UINT64_MAX-size)return MEMORY_UPDATE_ERROR;
++	if(merge->pending){
++		if(addr<merge->end)return MEMORY_UPDATE_ERROR;
++		if(addr==merge->end){merge->end=addr+size;return 0;}
++		/* A gap flush ends at the PREVIOUS end, not the incoming end. */
++		if((ret=fdt_flush_memory(writer,merge))!=0)return ret;
++	}
++	merge->start=addr;
++	merge->end=addr+size;
++	merge->pending=true;
+ 	return 0;
+ }
+ 
+-static int update_from_memory_map(linux_boot*lb){
+-	EFI_STATUS st;
+-	EFI_MEMORY_DESCRIPTOR*mm=NULL,*md;
+-	UINTN ms=0,mk=0,ds=0;
++static int update_from_memory_map(memory_writer*writer){
++	EFI_STATUS st=EFI_OUT_OF_RESOURCES;
++	EFI_MEMORY_DESCRIPTOR*mm=NULL,*md,*next;
++	UINTN ms=sizeof(EFI_MEMORY_DESCRIPTOR),mk=0,ds=0,capacity,count;
+ 	UINT32 dv=0;
+-	do{
+-		ms+=sizeof(EFI_MEMORY_DESCRIPTOR);
+-		if(mm)FreePool(mm);
+-		if(!(mm=AllocatePool(ms+(2*ds))))break;
++	uint64_t end=0,size;
++	memory_merge merge={0};
++	int ret=MEMORY_UPDATE_ERROR;
++	for(;;){
++		if(ds>(~(UINTN)0-ms)/2)break;
++		capacity=ms+2*ds;
++		if(mm){FreePool(mm);mm=NULL;}
++		if(!(mm=AllocatePool(capacity)))break;
++		ms=capacity;
+ 		st=gBS->GetMemoryMap(&ms,mm,&mk,&ds,&dv);
+-	}while(st==EFI_BUFFER_TOO_SMALL);
+-	if(EFI_ERROR(st)){
+-		tlog_warn(
+-			"get memory map failed: %s",
+-			efi_status_to_string(st)
+-		);
+-		if(mm)FreePool(mm);
+-		return -1;
++		if(st!=EFI_BUFFER_TOO_SMALL)break;
++	}
++	if(EFI_ERROR(st)||!mm){
++		tlog_warn("get memory map failed: %s",efi_status_to_string(st));
++		goto done;
++	}
++	if(ds<sizeof(*mm)||ds%sizeof(UINT64)!=0||ms>capacity||ms%ds!=0)
++		goto invalid;
++	count=ms/ds;
++	/* UEFI does not require descriptor order. Sort complete records, including
++	 * any firmware extension bytes, before checking all ranges for overlap.
++	 */
++	for(UINTN i=0;i<count;i++){
++		UINTN first=i;
++		for(UINTN j=i+1;j<count;j++){
++			md=(void*)((UINT8*)mm+j*ds);
++			next=(void*)((UINT8*)mm+first*ds);
++			if(md->PhysicalStart<next->PhysicalStart)first=j;
++		}
++		if(first!=i)for(UINTN b=0;b<ds;b++){
++			UINT8 tmp=((UINT8*)mm)[i*ds+b];
++			((UINT8*)mm)[i*ds+b]=((UINT8*)mm)[first*ds+b];
++			((UINT8*)mm)[first*ds+b]=tmp;
++		}
++	}
++	/* Validate even excluded descriptors before writing any memory tuples. */
++	for(UINTN i=0;i<count;i++){
++		md=(void*)((UINT8*)mm+i*ds);
++		if(!md->NumberOfPages)continue;
++		if((md->PhysicalStart&((1ULL<<EFI_PAGE_SHIFT)-1))||
++			md->NumberOfPages>(UINT64_MAX>>EFI_PAGE_SHIFT))goto invalid;
++		size=md->NumberOfPages<<EFI_PAGE_SHIFT;
++		if(md->PhysicalStart<end||md->PhysicalStart>UINT64_MAX-size)goto invalid;
++		end=md->PhysicalStart+size;
+ 	}
+ 	tlog_debug("update memory from uefi memory map");
+-	for(md=mm;(void*)md<(void*)mm+ms;md=(void*)md+ds){
++	for(UINTN i=0;i<count;i++){
++		md=(void*)((UINT8*)mm+i*ds);
++		if(!md->NumberOfPages)continue;
+ 		switch(md->Type){
+-			case EfiReservedMemoryType:
++			/* Reserved, unusable, MMIO and unknown types are never RAM. */
+ 			case EfiLoaderCode:
+ 			case EfiLoaderData:
+ 			case EfiBootServicesCode:
+@@ -118,19 +167,26 @@ static int update_from_memory_map(linux_boot*lb){
+ 			case EfiACPIReclaimMemory:
+ 			case EfiACPIMemoryNVS:
+ 			case EfiPalCode:
+-				fdt_add_merge_memory(
+-					lb,md->PhysicalStart,
+-					EFI_PAGES_TO_SIZE(md->NumberOfPages)
+-				);
+-			break;
+-			default:continue;
++				ret=fdt_add_merge_memory(writer,&merge,md->PhysicalStart,
++					md->NumberOfPages<<EFI_PAGE_SHIFT);
++				if(ret!=0)goto done;
++				break;
++			default:break;
+ 		}
+ 	}
+-	fdt_add_merge_memory(lb,0,0);
+-	return 0;
++	if(!merge.pending){ret=MEMORY_UPDATE_ERROR;goto invalid;}
++	ret=fdt_flush_memory(writer,&merge);
++	goto done;
++	invalid:
++	tlog_warn("invalid or empty uefi memory map");
++	ret=MEMORY_UPDATE_ERROR;
++	done:
++	if(mm)FreePool(mm);
++	return ret;
+ }
+ 
+-static int update_from_conf(linux_boot*lb){
++static int update_from_conf(memory_writer*writer){
++	linux_boot*lb=writer->lb;
+ 	int r=-1;
+ 	if(lb->config)for(
+ 		size_t i=0;
+@@ -138,16 +194,18 @@ static int update_from_conf(linux_boot*lb){
+ 		i++
+ 	){
+ 		linux_mem_region*reg=&lb->config->memory[i];
+-		UINTN size=reg->end-reg->start;
+-		if(reg->start<=0||reg->end<=0||size<=0)continue;
++		if(!reg->start&&!reg->end)continue;
++		if(reg->end<=reg->start)return MEMORY_UPDATE_ERROR;
+ 		if(r==-1)tlog_debug("update memory from config");
+-		fdt_add_memory(lb,(UINTN)reg->start,size);
++		if(fdt_add_memory(writer,reg->start,reg->end-reg->start)!=0)
++			return MEMORY_UPDATE_ERROR;
+ 		r=0;
+ 	}
+ 	return r;
+ }
+ 
+-static int update_from_kernel_fdt(linux_boot*lb){
++static int update_from_kernel_fdt(memory_writer*writer){
++	linux_boot*lb=writer->lb;
+ 	int node=0,r=-1;
+ 	EFI_STATUS st;
+ 	uint64_t base=0,size=0;
+@@ -161,13 +219,13 @@ static int update_from_kernel_fdt(linux_boot*lb){
+ 	if(EFI_ERROR(st)||!fdt||!fdt->Fdt)return r;
+ 	tlog_debug("update memory from kernel fdt");
+ 	while(fdt_get_memory(fdt->Fdt,node,&base,&size)){
+-		fdt_add_memory(lb,(UINTN)base,(UINTN)size);
++		if(fdt_add_memory(writer,base,size)!=0)return MEMORY_UPDATE_ERROR;
+ 		node++,r=0;
+ 	}
+ 	return r;
+ }
+ 
+-static int update_from_ram_partition(linux_boot*lb){
++static int update_from_ram_partition(memory_writer*writer){
+ 	int r=-1;
+ 	UINT32 cnt=0;
+ 	EFI_STATUS st;
+@@ -191,7 +249,10 @@ static int update_from_ram_partition(linux_boot*lb){
+ 	));
+ 	for(UINT32 i=0;i<cnt;i++){
+ 		if(parts[i].Base<=0||parts[i].AvailableLength<=0)continue;
+-		fdt_add_memory(lb,parts[i].Base,parts[i].AvailableLength);
++		if(fdt_add_memory(writer,parts[i].Base,parts[i].AvailableLength)!=0){
++			r=MEMORY_UPDATE_ERROR;
++			goto done;
++		}
+ 		r=0;
+ 	}
+ 	done:
+@@ -257,13 +318,20 @@ static int update_ddr_info(linux_boot*lb){
+ }
+ 
+ int linux_boot_update_memory(linux_boot*lb){
++	int ret;
++	memory_writer writer={.lb=lb};
+ 	if(!lb->dtb.address)return 0;
+ 	if(lb->config->pass_kfdt_dtb)return 0;
+ 	if(update_ddr_info(lb)!=0)return -1;
+-	if(update_from_conf(lb)==0)return 0;
+-	if(update_from_ram_partition(lb)==0)return 0;
+-	if(update_from_kernel_fdt(lb)==0)return 0;
+-	if(update_from_memory_map(lb)==0)return 0;
+-	tlog_warn("no avaliable memory update method");
+-	return -1;
++	/* Only unavailable sources fall back; never mask a failed DT write. */
++	ret=update_from_conf(&writer);
++	if(ret!=-1)return ret;
++	ret=update_from_ram_partition(&writer);
++	if(ret!=-1)return ret;
++	ret=update_from_kernel_fdt(&writer);
++	if(ret!=-1)return ret;
++	ret=update_from_memory_map(&writer);
++	if(ret==0)return 0;
++	tlog_warn("no available memory update method succeeded");
++	return ret;
+ }

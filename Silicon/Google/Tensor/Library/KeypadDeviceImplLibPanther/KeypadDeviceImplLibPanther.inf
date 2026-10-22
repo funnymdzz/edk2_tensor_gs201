@@ -1,0 +1,26 @@
+## @file
+#  Volume-key keypad backend for Pixel 7 (panther / GS201).
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+[Defines]
+  INF_VERSION    = 0x00010005
+  BASE_NAME      = KeypadDeviceImplLibPanther
+  FILE_GUID      = 2f4b8c31-9d6a-4a0e-bb57-1c7e5f0a9d24
+  MODULE_TYPE    = BASE
+  VERSION_STRING = 1.0
+  LIBRARY_CLASS  = KeypadDeviceImplLib
+  CONSTRUCTOR    = KeypadDeviceImplConstructor
+
+[Sources.common]
+  KeypadDeviceImplLib.c
+  PantherKeypadLogic.h
+
+[Packages]
+  MdePkg/MdePkg.dec
+  ArmPkg/ArmPkg.dec
+  Silicon/Google/Tensor/Tensor.dec
+
+[LibraryClasses]
+  BaseMemoryLib
+  IoLib

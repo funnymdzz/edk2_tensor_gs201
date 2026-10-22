@@ -1,0 +1,34 @@
+## @file
+#  Keeps the Exynos/Tensor cluster-0 hardware watchdog (left armed by PrePi)
+#  alive while UEFI is responsive. A hang that stops timer interrupts still
+#  resets the board, so the safety net is preserved.
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+[Defines]
+  INF_VERSION    = 0x00010005
+  BASE_NAME      = ExynosWatchdogDxe
+  FILE_GUID      = 6b1d9a52-0f0e-4f1d-9a5c-2c3f6e0d7a41
+  MODULE_TYPE    = DXE_DRIVER
+  VERSION_STRING = 1.0
+  ENTRY_POINT    = ExynosWatchdogDxeInitialize
+
+[Sources.common]
+  ExynosWatchdogDxe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  Silicon/Google/GooglePkg/GooglePkg.dec
+
+[LibraryClasses]
+  DebugLib
+  IoLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+
+[FixedPcd]
+  gQcomTokenSpaceGuid.PcdWatchdogBase
+  gQcomTokenSpaceGuid.PcdWatchdogReloadSeconds
+
+[Depex]
+  TRUE

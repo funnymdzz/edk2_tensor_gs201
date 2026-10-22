@@ -1,0 +1,39 @@
+## @file
+# Experimental ARM64 Panther Linux EFI-stub launcher.
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = LinuxEfiBoot
+  FILE_GUID                      = 4d3b9ef7-70cb-48e3-bf68-0943f72be6d6
+  MODULE_TYPE                    = UEFI_APPLICATION
+  VERSION_STRING                 = 0.1
+  ENTRY_POINT                    = LinuxEfiBootMain
+
+# Deliberately ARM64-only; no parent DSC/FDF integration in this WIP.
+[Sources.AARCH64]
+  LinuxEfiBoot.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  DevicePathLib
+  FdtLib
+  MemoryAllocationLib
+  UefiApplicationEntryPoint
+  UefiBootServicesTableLib
+  UefiLib
+
+[Protocols]
+  gEfiLoadedImageProtocolGuid
+  gEfiSimpleFileSystemProtocolGuid
+  gEfiDevicePathProtocolGuid
+  gEfiLoadFile2ProtocolGuid
+
+[Guids]
+  gEfiFileInfoGuid
+  gFdtTableGuid
+  gLinuxEfiInitrdMediaGuid
