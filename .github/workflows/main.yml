@@ -52,9 +52,13 @@ jobs:
           # fields, producing an image the real bootloader accepts.
           "$MAGISKBOOT" repack stock.img "$WORK/repacked.img"
           mv "$WORK/repacked.img" "$IMG"
-          # Verify round-trip: decompressed kernel must be identical.
+          # Verify round-trip: unpack decompresses the kernel, so compare
+          # against the DECOMPRESSED payload, not the lz4_legacy stream.
           "$MAGISKBOOT" unpack "$IMG" >/dev/null 2>&1
-          cmp kernel "$GITHUB_WORKSPACE/out/workspace/uefi-panther-kernel" \
+          lz4 -d -c \
+            "$GITHUB_WORKSPACE/out/workspace/uefi-panther-kernel" \
+            > payload.raw
+          cmp kernel payload.raw \
             || { echo "::error::payload mismatch after repack"; exit 1; }
           echo "magiskboot repack complete: $(stat -c%s "$IMG") bytes"
           "$MAGISKBOOT" unpack -h "$IMG" 2>&1 | head -10
