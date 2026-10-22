@@ -521,3 +521,16 @@ index e0bc5f0..ff8ad54 100644
  #endif
  
  #ifdef __cplusplus
+diff --git a/libs/compatible/SimpleInitCompatible.inf b/libs/compatible/SimpleInitCompatible.inf
+index 4bf7512..2b3d22a 100644
+--- a/libs/compatible/SimpleInitCompatible.inf
++++ b/libs/compatible/SimpleInitCompatible.inf
+@@ -7,7 +7,7 @@
+   LIBRARY_CLASS                  = SimpleInitCompatible
+ 
+ [BuildOptions]
+-  GCC:*_*_*_CC_FLAGS = -include src/config-uefi.h -Wno-missing-braces -Wno-sign-compare
++  GCC:*_*_*_CC_FLAGS = -include src/config-uefi.h -Wno-missing-braces -Wno-sign-compare -Wno-old-style-definition
+ 
+ [Packages]
+   MdePkg/MdePkg.dec
