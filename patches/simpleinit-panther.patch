@@ -508,3 +508,16 @@ index b8d1df9..03df54d 100644
  	size_t i;
  	if(!s || !*s)return ".";
  	i=strlen(s)-1;
+diff --git a/libs/compatible/include/string.h b/libs/compatible/include/string.h
+index e0bc5f0..ff8ad54 100644
+--- a/libs/compatible/include/string.h
++++ b/libs/compatible/include/string.h
+@@ -67,7 +67,7 @@ void *memmem(const void *, size_t, const void *, size_t);
+ void *memrchr(const void *, int, size_t);
+ void *mempcpy(void *, const void *, size_t);
+ #ifndef __cplusplus
+-char *basename();
++char *basename(char *);
+ #endif
+ 
+ #ifdef __cplusplus
